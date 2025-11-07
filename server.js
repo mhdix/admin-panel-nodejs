@@ -2,6 +2,8 @@ require("dotenv").config();
 const cors = require("cors");
 const mongoose = require("mongoose");
 const express = require("express");
+const multer = require("multer");
+const path = require("path");
 
 const app = express();
 app.use(express.json());
@@ -19,9 +21,23 @@ mongoose
   .then((res) => console.log("db connected" + process.env.DB_URL))
   .catch((res) => console.log(caches));
 
+// ----------------- Multer -----------------
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, "uploads"));
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + "-" + file.originalname);
+  },
+});
+const upload = multer({ storage });
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// -------------------- USER ------------------------
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, require: true },
+  image: { type: String },
 });
 
 const User = mongoose.model("User", userSchema);
@@ -29,7 +45,7 @@ const User = mongoose.model("User", userSchema);
 app.get("/api/users", async (req, res) => {
   try {
     const users = await User.find();
-    return res.status(200).json({
+    res.status(200).json({
       data: users,
       message: "user fetched sucessfuly ✅",
     });
@@ -41,11 +57,15 @@ app.get("/api/users", async (req, res) => {
   }
 });
 
-app.post("/api/users", async (req, res) => {
+app.post("/api/users", upload.single("image"), async (req, res) => {
   try {
     const { name, email } = req.body;
-
-    const addUser = await User({ name, email });
+    const file = req.file;
+    const addUser = await User({
+      name,
+      email,
+      image: file ? `/uploads/${file.filename}` : "",
+    });
     addUser.save();
     res.status(200).json({
       data: addUser,
@@ -59,11 +79,10 @@ app.post("/api/users", async (req, res) => {
   }
 });
 
-// ------------------------------------- BLOG -----------------------------------------
-
+// -------------------- BLOG ------------------------
 const blogSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  description: { type: String, required: true },
+  title: { type: String },
+  description: { type: String },
   image: String,
   readTime: { type: Number, default: 1 },
   tags: {
@@ -90,17 +109,22 @@ app.get("/api/blogs", async (req, res) => {
   }
 });
 
-app.post("/api/blogs", async (req, res) => {
+app.post("/api/blogs", upload.single("image"), async (req, res) => {
   try {
-    const { image, tags, readTime, title, description } = req.body;
+    console.log("req.file ----- ", req.file);
 
+    const { image, tags, readTime, title, blog, description } = req.body;
+    const file = req.file;
+    console.log("file", file);
     const addBlog = new Blog({
       image,
       tags,
       readTime,
       title,
       description,
+      image: file ? `/uploads/${file.filename}` : "",
     });
+    console.log("addBlog -----", addBlog);
     await addBlog.save();
 
     res.json({
@@ -115,4 +139,5 @@ app.post("/api/blogs", async (req, res) => {
   }
 });
 
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.listen(process.env.PORT, () => console.log("server connected"));
