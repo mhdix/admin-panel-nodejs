@@ -1,10 +1,18 @@
 require("dotenv").config();
-
+const cors = require("cors");
 const mongoose = require("mongoose");
 const express = require("express");
 
 const app = express();
 app.use(express.json());
+
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  })
+);
 
 mongoose
   .connect("mongodb://127.0.0.1:27017/blogdb")
@@ -86,7 +94,7 @@ app.post("/api/blogs", async (req, res) => {
   try {
     const { image, tags, readTime, title, description } = req.body;
 
-    const addBlog = await Blog({
+    const addBlog = new Blog({
       image,
       tags,
       readTime,
